@@ -126,7 +126,7 @@ ALLOWED_ORIGINS = (
     ["*"] if ALLOWED_ORIGINS_STR == "*" else [
         origin.strip() for origin in ALLOWED_ORIGINS_STR.split(",") if origin.strip()
     ]
-
+)
 
 # ---------- 运行时全局信息，无需修改 ----------
 
