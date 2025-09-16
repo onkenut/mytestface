@@ -111,28 +111,10 @@ def openAI_from_Gemini(response, stream=True):
             "content": None,  # 函数调用时 content 为 null
             "tool_calls": tool_calls,
         }
-    elif response.text:
-        import re
-        # 处理普通文本响应
-        text = response.text
-        # 确保 thoughts 属性存在且不为 None
-        thoughts = response.thoughts if hasattr(response, 'thoughts') and response.thoughts else ""
-
-        # 检查并从 text 中提取 <thought> 标签内容
-        match = re.search(r"<thought>(.*?)</thought>", text, re.DOTALL)
-        if match:
-            extracted_thought = match.group(1).strip()
-            # 如果已经有结构化的 thought，就拼接
-            if thoughts:
-                thoughts = f"{thoughts}\n{extracted_thought}"
-            else:
-                thoughts = extracted_thought
-            # 从主文本中移除 thought 标签
-            text = re.sub(r"<thought>.*?</thought>", "", text, flags=re.DOTALL).strip()
-
-        content_chunk = {"role": "assistant", "content": text}
-        if thoughts:
-            content_chunk["reasoning_content"] = thoughts
+    elif response.text or response.thoughts:
+        content_chunk = {"role": "assistant", "content": response.text}
+        if response.thoughts:
+            content_chunk["reasoning_content"] = response.thoughts
     
     if stream:
         formatted_chunk["choices"][0]["delta"] = content_chunk

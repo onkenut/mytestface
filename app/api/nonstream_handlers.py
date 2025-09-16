@@ -473,16 +473,24 @@ async def process_request(
         extra={"request_type": "switch_key"},
     )
 
+    # 根据配置决定返回内容
+    if settings.SHOW_API_ERROR_MESSAGE:
+        # 显示错误消息
+        error_content = "所有API密钥均请求失败\n具体错误请查看轮询日志"
+    else:
+        # 返回空内容
+        error_content = ""
+    
     if is_gemini:
         return gemini_from_text(
-            content="所有API密钥均请求失败\n具体错误请查看轮询日志",
+            content=error_content,
             finish_reason="STOP",
             stream=False,
         )
     else:
         return openAI_from_text(
             model=chat_request.model,
-            content="所有API密钥均请求失败\n具体错误请查看轮询日志",
+            content=error_content,
             finish_reason="stop",
             stream=False,
         )
@@ -743,16 +751,24 @@ async def process_nonstream_with_keepalive_stream(
                 extra={"request_type": "switch_key"},
             )
 
+            # 根据配置决定返回内容
+            if settings.SHOW_API_ERROR_MESSAGE:
+                # 显示错误消息
+                error_content = "所有API密钥均请求失败\n具体错误请查看轮询日志"
+            else:
+                # 返回空内容
+                error_content = ""
+            
             if is_gemini:
                 error_response = gemini_from_text(
-                    content="所有API密钥均请求失败\n具体错误请查看轮询日志",
+                    content=error_content,
                     finish_reason="STOP",
                     stream=False,
                 )
             else:
                 error_response = openAI_from_text(
                     model=chat_request.model,
-                    content="所有API密钥均请求失败\n具体错误请查看轮询日志",
+                    content=error_content,
                     finish_reason="stop",
                     stream=False,
                 )

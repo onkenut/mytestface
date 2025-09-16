@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +17,7 @@ from app.utils import (
 )
 from app.config.persistence import save_settings, load_settings
 from app.api import router, init_router, dashboard_router, init_dashboard_router
+from app.api.auth_routes import auth_router
 from app.vertex.vertex_ai_init import init_vertex_ai
 from app.vertex.credentials_manager import CredentialManager
 import app.config.settings as settings
@@ -246,8 +247,8 @@ async def startup_event():
         credential_manager_instance,
     )
 
-    # 启动浏览器
-    open_browser()
+    # 创建异步任务，在后台延迟打开浏览器
+    asyncio.create_task(open_browser_delayed())
 
 
 # --------------- 异常处理 ---------------
@@ -274,9 +275,35 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 app.include_router(router)
 app.include_router(dashboard_router)
+app.include_router(auth_router)
 
 # 挂载静态文件目录
 app.mount("/assets", StaticFiles(directory="app/templates/assets"), name="assets")
+
+# 添加一个内部路由用于显示仪表盘内容（密码验证后使用）
+@app.api_route("/dashboard-authenticated", methods=["POST"], response_class=HTMLResponse)
+async def dashboard_authenticated(request: Request):
+    """
+    经过验证的仪表盘页面 - 只在密码验证成功后通过POST访问
+    """
+    # 获取请求体
+    try:
+        body = await request.json()
+        password = body.get("password")
+        
+        # 验证密码
+        if password != settings.PASSWORD:
+            return RedirectResponse(url="/", status_code=302)
+            
+        # 密码正确，返回仪表盘页面
+        base_url = str(request.base_url).replace("http", "https")
+        api_url = f"{base_url}v1" if base_url.endswith("/") else f"{base_url}/v1"
+        return templates.TemplateResponse(
+            "index.html", {"request": request, "api_url": api_url}
+        )
+    except:
+        # 任何错误都重定向到登录页面
+        return RedirectResponse(url="/", status_code=302)
 
 # 设置根路由路径
 dashboard_path = f"/{settings.DASHBOARD_URL}" if settings.DASHBOARD_URL else "/"
@@ -285,14 +312,18 @@ dashboard_path = f"/{settings.DASHBOARD_URL}" if settings.DASHBOARD_URL else "/"
 @app.api_route(dashboard_path, methods=["GET", "HEAD"], response_class=HTMLResponse)
 async def root(request: Request):
     """
-    根路由 - 返回静态 HTML 文件
+    根路由 - 总是返回登录页面
     """
-    base_url = str(request.base_url).replace("http", "https")
-    api_url = f"{base_url}v1" if base_url.endswith("/") else f"{base_url}/v1"
-    # 直接返回 index.html 文件
     return templates.TemplateResponse(
-        "index.html", {"request": request, "api_url": api_url}
+        "login.html", {"request": request}
     )
+
+@app.api_route("/dashboard", methods=["GET"])
+async def dashboard(request: Request):
+    """
+    仪表盘页面 - 始终重定向到登录页面，防止直接访问
+    """
+    return RedirectResponse(url="/", status_code=302)
 
 
 # --------------- 自动启动浏览器 ---------------
@@ -325,3 +356,13 @@ def open_browser():
     except Exception as e:
         # 捕获其他可能的异常
         log("error", f"尝试打开浏览器时发生未知错误: {e}")
+
+
+async def open_browser_delayed():
+    """
+    在后台异步延迟打开浏览器，避免阻塞服务器启动。
+    延迟3秒后打开浏览器，确保服务器已经完全准备好。
+    """
+    log("info", "将在3秒后自动打开浏览器...")
+    await asyncio.sleep(3)  # 异步等待3秒
+    open_browser()

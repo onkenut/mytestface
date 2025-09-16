@@ -40,18 +40,19 @@ class GeminiResponseWrapper:
 
     def _extract_thoughts(self) -> Optional[str]:
         try:
+            thoughts = []
             for part in self._data["candidates"][0]["content"]["parts"]:
-                if "thought" in part:
-                    return part["text"]
-            return ""
+                if part.get("thought"):
+                    thoughts.append(part.get("text", ""))
+            return "".join(thoughts) if thoughts else None
         except (KeyError, IndexError):
-            return ""
+            return None
 
     def _extract_text(self) -> str:
         try:
             text = ""
             for part in self._data["candidates"][0]["content"]["parts"]:
-                if "thought" not in part and "text" in part:
+                if not part.get("thought") and "text" in part:
                     text += part["text"]
             return text
         except (KeyError, IndexError):
@@ -211,10 +212,16 @@ class GeminiClient:
             else None,
             "candidateCount": request.n,
         }
-        if request.thinking_budget:
-            config_params["thinkingConfig"] = {
-                "thinkingBudget": request.thinking_budget
-            }
+        thinking_config = {}
+        if request.thinking_budget is not None:
+            thinking_config["thinkingBudget"] = request.thinking_budget
+        
+        if hasattr(request, "enable_thinking"):
+            thinking_config["include_thoughts"] = request.enable_thinking
+
+        if thinking_config:
+            config_params["thinkingConfig"] = thinking_config
+            
         generationConfig = {k: v for k, v in config_params.items() if v is not None}
 
         api_version = "v1alpha" if "think" in request.model else "v1beta"

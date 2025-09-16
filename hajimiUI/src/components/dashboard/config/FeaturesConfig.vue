@@ -16,7 +16,8 @@ const localConfig = reactive({
   concurrentRequests: 1, // Default to 1 or a sensible minimum
   increaseConcurrentOnFailure: 0,
   maxConcurrentRequests: 1, // Default to 1 or a sensible minimum
-  maxEmptyResponses: 0
+  maxEmptyResponses: 0,
+  showApiErrorMessage: true
 })
 
 const populatedFromStore = ref(false);
@@ -35,6 +36,7 @@ watch(
     storeIncreaseConcurrentOnFailure: dashboardStore.config.increaseConcurrentOnFailure,
     storeMaxConcurrentRequests: dashboardStore.config.maxConcurrentRequests,
     storeMaxEmptyResponses: dashboardStore.config.maxEmptyResponses,
+    storeShowApiErrorMessage: dashboardStore.config.showApiErrorMessage,
     configIsActuallyLoaded: dashboardStore.isConfigLoaded, // 观察加载状态
   }),
   (newValues) => {
@@ -50,6 +52,7 @@ watch(
       localConfig.increaseConcurrentOnFailure = newValues.storeIncreaseConcurrentOnFailure;
       localConfig.maxConcurrentRequests = newValues.storeMaxConcurrentRequests;
       localConfig.maxEmptyResponses = newValues.storeMaxEmptyResponses;
+      localConfig.showApiErrorMessage = newValues.storeShowApiErrorMessage ?? true;
       populatedFromStore.value = true;
     }
   },
@@ -136,6 +139,16 @@ defineExpose({
             <input type="checkbox" class="toggle" id="randomString" v-model="localConfig.randomString">
             <label for="randomString" class="toggle-label">
               <span class="toggle-text">{{ getBooleanText(localConfig.randomString) }}</span>
+            </label>
+          </div>
+        </div>
+        
+        <div class="config-group">
+          <label class="config-label">API空回文本替换</label>
+          <div class="toggle-wrapper">
+            <input type="checkbox" class="toggle" id="showApiErrorMessage" v-model="localConfig.showApiErrorMessage">
+            <label for="showApiErrorMessage" class="toggle-label">
+              <span class="toggle-text">{{ getBooleanText(localConfig.showApiErrorMessage) }}</span>
             </label>
           </div>
         </div>

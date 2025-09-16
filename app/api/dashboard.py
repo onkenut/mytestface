@@ -119,6 +119,11 @@ async def get_dashboard_data():
     last_24h_calls = api_stats_manager.get_calls_last_24h()
     hourly_calls = api_stats_manager.get_calls_last_hour(now)
     minute_calls = api_stats_manager.get_calls_last_minute(now)
+    
+    # 获取Token消耗数据
+    last_24h_tokens = api_stats_manager.get_tokens_last_24h()
+    hourly_tokens = api_stats_manager.get_tokens_last_hour(now)
+    minute_tokens = api_stats_manager.get_tokens_last_minute(now)
 
     # 获取时间序列数据
     time_series_data, tokens_time_series = api_stats_manager.get_time_series_data(
@@ -153,11 +158,15 @@ async def get_dashboard_data():
     return {
         "key_count": len(key_manager.api_keys),
         "model_count": len(GeminiClient.AVAILABLE_MODELS),
+        "available_models": GeminiClient.AVAILABLE_MODELS,  # 添加可用模型列表
         "retry_count": settings.MAX_RETRY_NUM,
         "credentials_count": credentials_count,  # 添加凭证数量
         "last_24h_calls": last_24h_calls,
         "hourly_calls": hourly_calls,
         "minute_calls": minute_calls,
+        "last_24h_tokens": last_24h_tokens,
+        "hourly_tokens": hourly_tokens,
+        "minute_tokens": minute_tokens,
         "calls_time_series": time_series_data,  # 添加API调用时间序列
         "tokens_time_series": tokens_time_series,  # 添加Token使用时间序列
         "current_time": datetime.now().strftime("%H:%M:%S"),
@@ -205,6 +214,8 @@ async def get_dashboard_data():
         "max_retry_num": settings.MAX_RETRY_NUM,
         # 添加空响应重试次数限制
         "max_empty_responses": settings.MAX_EMPTY_RESPONSES,
+        # 添加API密钥空回时是否替换文本信息配置
+        "show_api_error_message": settings.SHOW_API_ERROR_MESSAGE,
     }
 
 
@@ -621,7 +632,8 @@ async def update_config(config_data: dict):
                     status_code=422, detail="参数类型错误：API密钥应为逗号分隔的字符串"
                 )
 
-            # 分割并清理API密钥
+            # 将换行符替换为逗号，然后分割并清理API密钥
+            config_value = config_value.replace('\n', ',').replace('\r', ',')
             new_keys = [key.strip() for key in config_value.split(",") if key.strip()]
             if not new_keys:
                 raise HTTPException(status_code=400, detail="未提供有效的API密钥")
@@ -681,6 +693,12 @@ async def update_config(config_data: dict):
                 log("info", f"空响应重试次数已更新为：{value}")
             except ValueError as e:
                 raise HTTPException(status_code=422, detail=f"参数类型错误：{str(e)}")
+
+        elif config_key == "show_api_error_message":
+            if not isinstance(config_value, bool):
+                raise HTTPException(status_code=422, detail="参数类型错误：应为布尔值")
+            settings.SHOW_API_ERROR_MESSAGE = config_value
+            log("info", f"API错误消息显示已更新为：{config_value}")
 
         else:
             raise HTTPException(status_code=400, detail=f"不支持的配置项：{config_key}")
